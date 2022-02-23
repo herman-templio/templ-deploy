@@ -42,5 +42,5 @@ The config file can contain any number of 'templs' and if none is given on comma
 ```
 npm run deploy
 ```
-will work provided your currently in a git repo and the current branch is called 'main'.
+will work provided you're currently in a git repo and the current branch is called 'main'.
 
