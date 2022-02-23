@@ -4,7 +4,7 @@ Deploy files to templ
 # Install
 Clone this repo into a local directory then do:
 ```
-npm install path/to/clone
+npm install path/to/templ-deploy
 ```
 
 # Config
@@ -28,7 +28,7 @@ export default config
 ````
 Add a script to your package.json:
 ```
-"deploy":"deploy"
+"deploy":"templ-deploy"
 ```
 # Use
 
