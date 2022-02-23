@@ -1,5 +1,5 @@
 # templ-deploy
-Deploy files to templ
+Deploy files to Templ (https://templ.io)
 
 ## Install
 Clone this repo into a local directory then do:
