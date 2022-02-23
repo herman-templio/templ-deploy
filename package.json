@@ -3,7 +3,7 @@
   "type":"module",
   "main": "index.js",
   "bin":{
-    "deploy":"./cli.js"
+    "templ-deploy":"./cli.js"
   },
   "dependencies": {
     "rsync": "^0.6.1",
