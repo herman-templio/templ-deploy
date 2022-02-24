@@ -1,28 +1,51 @@
 import simpleGit, {CleanOptions} from 'simple-git'
 import Rsync from 'rsync'
 
-const options = {
+const default_options = {
     baseDir: process.cwd(),
     binary: 'git',
     maxConcurrentProcesses: 6,
 };
-console.log(options);
-export async function deploy() {
+
+function parseFlags(args,flags) {
+    const res={}
+    for(let [flag,arg] of Object.entries(flags)) {
+        const i = args.indexOf('--'+flag)
+        if(i>=0) {
+            if(arg) {
+                res[flag]=args[i+1]
+                args.splice(i,2)
+            } else {
+                res[flag]=true
+                args.splice(i,1)
+            }
+        }
+    }
+    return res
+}
+const flags={
+    dry:false,
+    rsyncFlags:true,
+}
+export async function deploy({args, options, callback, baseDir,gitOptions=default_options}={}) {
     let config
+    args=args||process.argv.slice(2)
+    options = options || parseFlags(args,flags)
+    baseDir=baseDir || gitOptions.baseDir || process.cwd()
     try {
-        config = (await import(options.baseDir+'/.templ.mjs')).default
+        config = (await import(baseDir+'/.templ.mjs')).default
     } catch(e) {
-        console.log('Unable to import config',options.baseDir+'/.templ.mjs');
+        console.log('Unable to import config',baseDir+'/.templ.mjs');
         console.log(e.message);
         process.exit(1)
     }
 
     // console.log(options);
-    const git=simpleGit(options)
+    const git=simpleGit(gitOptions)
     const branch = (await git.branchLocal()).current
 
     console.log('Current branch',branch);
-    const templ=process.argv[2]||branch
+    const templ=args[0]||branch
     const templConfig=config?.templs?.[templ]
     if(!templConfig) {
         console.log('No such templ configured',templ);
@@ -48,9 +71,13 @@ export async function deploy() {
     dst+= templConfig.dst || `app_${templConfig.app}/`
     if(!dst.endsWith('/')) dst += '/'
 
-    const r=Rsync().shell(shell).flags('avzh').source(src).destination(dst)
-    console.log( r.command())
-    r.execute((error,code,cmd) => {
+    const r=Rsync().shell(shell).flags(options.rsyncFlags||templConfig.rsyncFlags||'avzh').source(src).destination(dst)
+    if(options.dry) {
+        console.log( 'Dry run:',r.command() )
+        return
+    }
+    if(!callback) callback=(error,code,cmd) => {
         console.log(error,code,cmd);
-    })
+    }
+    r.execute(callback)
 }
