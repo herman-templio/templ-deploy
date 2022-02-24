@@ -1,13 +1,13 @@
 # templ-deploy
-Deploy files to templ
+Deploy files to Templ (https://templ.io)
 
-# Install
+## Install
 Clone this repo into a local directory then do:
 ```
-npm install path/to/clone
+npm install path/to/templ-deploy
 ```
 
-# Config
+## Config
 Create a file .templ.mjs containing for example:
 
 ```
@@ -28,9 +28,9 @@ export default config
 ````
 Add a script to your package.json:
 ```
-"deploy":"deploy"
+"deploy":"templ-deploy"
 ```
-# Use
+## Use
 
 Now:
 ```
@@ -38,8 +38,9 @@ npm run deploy main
 ```
 will deploy the local dir named 'dist' to the given host under the default 'app_1234' directory. 
 
-Also:
+The config file can contain any number of 'templs' and if none is given on command line, the name of the current branch will be used. So for example:
 ```
 npm run deploy
 ```
-will work provided your currently in a git repo and the current branch is called 'main'.
+will work provided you're currently in a git repo and the current branch is called 'main'.
+
