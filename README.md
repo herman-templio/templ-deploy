@@ -2,9 +2,13 @@
 Deploy files to Templ (https://templ.io)
 
 ## Install
-Clone this repo into a local directory then do:
 ```
-npm install path/to/templ-deploy
+npm i -D git@github.com:herman-templio/templ-deploy.git
+```
+
+Or, if you're developing this package, simplest is to clone it into a local directory, then to use it in another module:
+```
+npm i -D path/to/templ-deploy
 ```
 
 ## Config
