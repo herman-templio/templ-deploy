@@ -48,3 +48,12 @@ npm run deploy
 ```
 will work provided you're currently in a git repo and the current branch is called 'main'.
 
+## Options
+A ```templ``` can contain the following options:
+
++ ```app``` a templ app id. Optional. No default.
++ ```host``` a hostname. Required.
++ ```port``` ssh port. Optional. Default: 22.
++ ```user``` ssh user. Optional. Default: user_<id> if an app id is given.
++ ```dst``` a destination path. Optional. Default: app_<id> if an app id was given.
++ ```files``` an array of files to copy from the dir. Optional. No default.
