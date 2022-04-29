@@ -52,17 +52,21 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
         process.exit(1)
     }
 
-    if(!templConfig.app || !templConfig.host) {
-        console.log('Config must define an app and a host');
+    if(!(templConfig.app || templConfig.user) || !templConfig.host) {
+        console.log('Config must define an app or user, and a host');
         process.exit(1)
     }
 
-    const dir=config.dir||'dist'
-    console.log('Deploying',dir, 'to app', templConfig.app);
+    const dir=config.options?.dir||'dist'
+    const exclude=config.options?.exclude
+
+    console.log('Deploying',dir, 'to', 
+        templConfig.app||templConfig.user);
+    if(exclude) console.log('Excluding',exclude);
 
     let shell='ssh'
     if(templConfig.port) shell+=` -p ${templConfig.port}`
-    let src=(templConfig.dir||'dist/')
+    let src=dir
     if(!src.endsWith('/')) src += '/'
     const app = templConfig.app
     const user=templConfig.user||`user_${app}`
@@ -71,7 +75,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     dst+= templConfig.dst || `app_${templConfig.app}/`
     if(!dst.endsWith('/')) dst += '/'
 
-    const r=Rsync().shell(shell).flags(options.rsyncFlags||templConfig.rsyncFlags||'avzh').source(src).destination(dst)
+    const r=Rsync().shell(shell).exclude(exclude||[]).flags(options.rsyncFlags||templConfig.rsyncFlags||'avzh').source(src).destination(dst)
     if(options.dry) {
         console.log( 'Dry run:',r.command() )
         return
