@@ -1,5 +1,5 @@
 # templ-deploy
-Deploy files to Templ (https://templ.io)
+Deploy files to Templ (https://templ.io) using rsync.
 
 ## Install
 ```
