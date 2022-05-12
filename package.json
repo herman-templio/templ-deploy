@@ -1,12 +1,13 @@
 {
-  "name":"templ-deploy",
-  "type":"module",
+  "name": "templ-deploy",
+  "type": "module",
   "main": "index.js",
-  "bin":{
-    "templ-deploy":"./cli.js"
+  "bin": {
+    "templ-deploy": "./cli.js"
   },
   "dependencies": {
     "rsync": "^0.6.1",
-    "simple-git": "^3.2.6"
+    "simple-git": "^3.2.6",
+    "ssh2": "^1.10.0"
   }
 }

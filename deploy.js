@@ -1,5 +1,6 @@
 import simpleGit, {CleanOptions} from 'simple-git'
 import Rsync from 'rsync'
+import { SSHCommand } from './ssh.js';
 
 const default_options = {
     baseDir: process.cwd(),
@@ -26,11 +27,13 @@ function parseFlags(args,flags) {
 const flags={
     dry:false,
     rsyncFlags:true,
+    run:true,
 }
 export async function deploy({args, options, callback, baseDir,gitOptions=default_options}={}) {
     let config
     args=args||process.argv.slice(2)
     options = options || parseFlags(args,flags)
+    console.log(options);
     baseDir=baseDir || gitOptions.baseDir || process.cwd()
     try {
         config = (await import(baseDir+'/.templ.mjs')).default
@@ -72,7 +75,8 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     const user=templConfig.user||`user_${app}`
     const host=templConfig.host
     let dst=`${user}@${host}:`
-    dst+= templConfig.dst || `app_${templConfig.app}/`
+    let dstDir=templConfig.dst || `app_${templConfig.app}/`
+    dst+= dstDir
     if(!dst.endsWith('/')) dst += '/'
 
     const r=Rsync().shell(shell).exclude(exclude||[]).flags(options.rsyncFlags||templConfig.rsyncFlags||'avzh').source(src).destination(dst)
@@ -83,5 +87,29 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     if(!callback) callback=(error,code,cmd) => {
         console.log(error,code,cmd);
     }
-    r.execute(callback)
+    let {error,code,cmd}=await new Promise(resolve=>r.execute((error,code,cmd)=>resolve({error,code,cmd})))
+    console.log(cmd);
+    if(error) {
+        console.log('Error',error);
+        return
+    }
+    const run=options.run||templConfig.run
+    if(run) {
+        // Run command remotely
+        let ssh_dst={host,username:user}
+        if(templConfig.port) ssh_dst.port=templConfig.port
+        if(templConfig.keyFile) ssh_dst.keyFile=templConfig.keyFile
+        let cmd=`cd ${dstDir}; ${run}`
+        cmd = new SSHCommand(ssh_dst,cmd)
+        try {
+            let [code,stdout,stderr] = await cmd.run()
+            if(code) {
+                console.log('Error code:',code);
+            }
+            console.log("Stdout:",stdout);
+            console.log("Stderr:",stderr);
+        } catch(e) {
+            console.log(e);
+        }
+    }
 }
