@@ -1,6 +1,7 @@
 import simpleGit, {CleanOptions} from 'simple-git'
 import Rsync from 'rsync'
 import { SSHCommand } from './ssh.js';
+import shelljs from 'shelljs'
 
 const default_options = {
     baseDir: process.cwd(),
@@ -28,6 +29,7 @@ const flags={
     dry:false,
     rsyncFlags:true,
     run:true,
+    ssh_shell:true,
 }
 export async function deploy({args, options, callback, baseDir,gitOptions=default_options}={}) {
     let config
@@ -69,6 +71,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
 
     let shell='ssh'
     if(templConfig.port) shell+=` -p ${templConfig.port}`
+    if(templConfig.sshId) shell+=` -i ${templConfig.sshId}`
     let src=dir
     if(!src.endsWith('/')) src += '/'
     const app = templConfig.app
@@ -80,23 +83,27 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     if(!dst.endsWith('/')) dst += '/'
 
     const r=Rsync().shell(shell).exclude(exclude||[]).flags(options.rsyncFlags||templConfig.rsyncFlags||'avzh').source(src).destination(dst)
-    if(options.dry) {
-        console.log( 'Dry run:',r.command() )
-        return
+    const skipRsync=templConfig.skip_rsync||options.skip_rsync
+    if(!skipRsync) {
+        if(options.dry) {
+            console.log( 'Dry run:',r.command() )
+        } else {
+            if(!callback) callback=(error,code,cmd) => {
+                console.log(error,code,cmd);
+            }
+            let {error,code,cmd}=await new Promise(resolve=>r.execute((error,code,cmd)=>resolve({error,code,cmd})))
+            console.log(cmd);
+            if(error) {
+                console.log('Error',error);
+                return
+            }
+        }
     }
-    if(!callback) callback=(error,code,cmd) => {
-        console.log(error,code,cmd);
-    }
-    let {error,code,cmd}=await new Promise(resolve=>r.execute((error,code,cmd)=>resolve({error,code,cmd})))
-    console.log(cmd);
-    if(error) {
-        console.log('Error',error);
-        return
-    }
-    const run=options.run||templConfig.run
+    const run=options.run||templConfig.run||config.options?.run
     if(run) {
         // Run command remotely
         let ssh_dst={host,username:user}
+        if(options.dry) ssh_dst.host='mock_ip'
         if(templConfig.port) ssh_dst.port=templConfig.port
         if(templConfig.keyFile) ssh_dst.keyFile=templConfig.keyFile
         let cmd=`cd ${dstDir}; ${run}`
@@ -112,4 +119,30 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
             console.log(e);
         }
     }
+    const ssh_shell=options.ssh_shell||templConfig.ssh_shell||config.options?.ssh_shell
+    if(ssh_shell) {
+        // Run command with SSH via shell
+        let cmd=`${shell} ${user}@${host} 'cd ${dstDir}; ${ssh_shell}'`
+        try {
+            if(options.dry) {
+                console.log('Dry run', cmd);
+            } else {
+                let p = new Promise((r,f)=>{
+                    shelljs.exec(cmd,{silent:true},(code,stdout,stderr)=>{
+                        r({code,stdout,stderr})
+                    })
+                })
+                let {code,stdout,stderr} = await p
+                if(code) {
+                    console.log('Error code:',code);
+                }
+                console.log("Stdout:",stdout);
+                console.log("Stderr:",stderr);
+            }
+        } catch(e) {
+            console.log(e);
+        }
+    }
+
+
 }
