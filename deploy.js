@@ -127,6 +127,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
             if(options.dry) {
                 console.log('Dry run', cmd);
             } else {
+                console.log('Executing',cmd);
                 let p = new Promise((r,f)=>{
                     shelljs.exec(cmd,{silent:true},(code,stdout,stderr)=>{
                         r({code,stdout,stderr})
