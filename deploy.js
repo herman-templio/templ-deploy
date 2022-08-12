@@ -53,7 +53,9 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     const templ=args[0]||branch
     const templConfig=config?.templs?.[templ]
     if(!templConfig) {
-        console.log('No such templ configured',templ);
+        console.error('No such templ configured',templ);
+        console.error('Available templs are:');
+        Object.keys(config?.templs)?.forEach(k=>console.error('   ',k))
         process.exit(1)
     }
 
@@ -62,8 +64,8 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
         process.exit(1)
     }
 
-    const dir=config.options?.dir||'dist'
-    const exclude=config.options?.exclude
+    const dir=templConfig.dir||config.options?.dir||'dist'
+    const exclude=templConfig.exclude||config.options?.exclude
 
     console.log('Deploying',dir, 'to', 
         templConfig.app||templConfig.user);
@@ -82,7 +84,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     dst+= dstDir
     if(!dst.endsWith('/')) dst += '/'
 
-    const r=Rsync().shell(shell).exclude(exclude||[]).flags(options.rsyncFlags||templConfig.rsyncFlags||'avzh').source(src).destination(dst)
+    const r=Rsync().set('rsync-path',`mkdir -p ${dstDir} && rsync`).shell(shell).exclude(exclude||[]).flags(options.rsyncFlags||templConfig.rsyncFlags||'avzh').source(src).destination(dst)
     const skipRsync=templConfig.skip_rsync||options.skip_rsync
     if(!skipRsync) {
         if(options.dry) {
@@ -129,16 +131,24 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
             } else {
                 console.log('Executing',cmd);
                 let p = new Promise((r,f)=>{
-                    shelljs.exec(cmd,{silent:true},(code,stdout,stderr)=>{
+                    const shell =shelljs.exec(cmd,{silent:true},(code,stdout,stderr)=>{
                         r({code,stdout,stderr})
                     })
+                    shell.stdout.on('data', function(data) {
+                        /* ... do something with data ... */
+                        console.log(data.toString());
+                    });                      
+                    shell.stderr.on('data', function(data) {
+                        /* ... do something with data ... */
+                        console.log('stderr:',data.toString());
+                    });                      
                 })
                 let {code,stdout,stderr} = await p
                 if(code) {
                     console.log('Error code:',code);
                 }
-                console.log("Stdout:",stdout);
-                console.log("Stderr:",stderr);
+                //console.log("Stdout:",stdout);
+                //console.log("Stderr:",stderr);
             }
         } catch(e) {
             console.log(e);
