@@ -30,12 +30,25 @@ const flags={
     rsyncFlags:true,
     run:true,
     ssh_shell:true,
+    help:false,
+}
+
+function help() {
+    console.log('deploy [options] [target]');
+    console.log('Deploys code to target based on the config file .templ.mjs.');
+    console.log('--dry',"Dry run, don't do anything just print what would be done.")
+    console.log('--rsyncFlags',"Extra flags to add to rsync.")
+    console.log('--ssh_shell',"Command to run remotely after rsync.")
+    console.log('--help',"This info.")
 }
 export async function deploy({args, options, callback, baseDir,gitOptions=default_options}={}) {
     let config
     args=args||process.argv.slice(2)
     options = options || parseFlags(args,flags)
     console.log(options);
+    if(options.help) {
+        help(); return
+    }
     baseDir=baseDir || gitOptions.baseDir || process.cwd()
     try {
         config = (await import(baseDir+'/.templ.mjs')).default
