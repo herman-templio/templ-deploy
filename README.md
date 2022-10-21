@@ -24,6 +24,7 @@ const config = {
             app:1234,
             host:'hostname.com',
             port:22342,
+            ssh_shell:'./run-after-deploy.sh', // Run remotely after files copied
         }
     }
 }
@@ -44,19 +45,14 @@ will deploy the local dir named 'dist' to the given host under the default 'app_
 
 The config file can contain any number of "templs". If no argument is given on command line, the name of the currently checked out git-branch will be used. In other words: ```npm run deploy``` is equivalent to ```npm run deploy $(git branch --show-current)```.
 
-## Command line options
-
-The following command line options are supported:
-+ ```--dry``` - prints the complete rsync-command that will be executed, but does not execute it
-+ ```--rsyncFlags <flags>``` - specify flags to pass to rsync. Default flags are ```avzh```
-
 ## Configuration options
 
 At top level, the configuration file can contain an ```options``` object, and a ```templs``` object. 
 
 The ```options``` can contain:
-+ ```dir``` the directory to deploy
-+ ```exclude``` an array of files and directories to exclude
++ ```dir``` the directory to deploy. Optional. Default is ```dist```.
++ ```exclude``` an array of files and directories to exclude. Optional. Default empty.
++ ```ssh_shell``` - specify a command to be run remotely after deploy.
 
 Each ```templ``` can contain the following options:
 
@@ -66,3 +62,13 @@ Each ```templ``` can contain the following options:
 + ```user``` ssh user. Optional. Default: ```user_<id>``` if an app id is given.
 + ```dst``` a destination path. Optional. Default: ```app_<id>``` if an app id was given.
 + ```files``` an array of files to copy from the dir. Optional. No default.
++ ```ssh_shell``` - specify a command to be run remotely after deploy. Overrides any command specified in options.
+
+## Command line options
+
+The following command line options are supported. *Note:* if running deploy as a an npm script, which is the normal way of running it, the deploy options must be preceed by a ```--```. Otherwise the options will be interpreted by ```npm``` which doesn't know what to do with them.
+
++ ```--dry``` - prints the complete rsync-command that will be executed, but does not execute it
++ ```--rsyncFlags <flags>``` - specify flags to pass to rsync. Default flags are ```avzh```
++ ```--ssh_shell <command>``` - specify command to be run remotely after deploy. Overrides any command specified in the config file
++ ```--help``` - prints command line help summary
