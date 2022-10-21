@@ -66,7 +66,7 @@ Each ```templ``` can contain the following options:
 
 ## Command line options
 
-The following command line options are supported. *Note:* if running deploy as a an npm script, which is the normal way of running it, the deploy options must be preceed by a ```--```. Otherwise the options will be interpreted by ```npm``` which doesn't know what to do with them.
+The following command line options are supported. **Note:** if running deploy as a an npm script, which is the normal way of running it, the deploy options must be preceed by a ```--```. Otherwise the options will be interpreted by ```npm``` which doesn't know what to do with them. Example: ```npm deploy beta -- --dry```
 
 + ```--dry``` - prints the complete rsync-command that will be executed, but does not execute it
 + ```--rsyncFlags <flags>``` - specify flags to pass to rsync. Default flags are ```avzh```
