@@ -52,7 +52,10 @@ At top level, the configuration file can contain an ```options``` object, and a 
 The ```options``` can contain:
 + ```dir``` the directory to deploy. Optional. Default is ```dist```.
 + ```exclude``` an array of files and directories to exclude. Optional. Default empty.
-+ ```ssh_shell``` - specify a command to be run remotely after deploy.
++ ```sshCmd``` - specify a command to be run remotely after deploy.
++ ```deps``` - a list of dependencies. See the Depency section.
++ ```depSsh``` - command to run remotely in the dependency destination directory
++ ```skipRsync``` -  Skip deploying files with rsync. Only run ssh-commands, if any.
 
 Each ```templ``` can contain the following options:
 
@@ -62,7 +65,8 @@ Each ```templ``` can contain the following options:
 + ```user``` ssh user. Optional. Default: ```user_<id>``` if an app id is given.
 + ```dst``` a destination path. Optional. Default: ```app_<id>``` if an app id was given.
 + ```files``` an array of files to copy from the dir. Optional. No default.
-+ ```ssh_shell``` - specify a command to be run remotely after deploy. Overrides any command specified in options.
++ ```sshCmd``` - specify a command to be run remotely after deploy. Overrides any command specified in options.
++ ```skipRsync``` -  Skip deploying files with rsync. Only run ssh-commands, if any.
 
 ## Command line options
 
@@ -70,5 +74,8 @@ The following command line options are supported. **Note:** if running deploy as
 
 + ```--dry``` - prints the complete rsync-command that will be executed, but does not execute it
 + ```--rsyncFlags <flags>``` - specify flags to pass to rsync. Default flags are ```avzh```
-+ ```--ssh_shell <command>``` - specify command to be run remotely after deploy. Overrides any command specified in the config file
++ ```--sshCmd <command>``` - specify command to be run remotely after deploy. Overrides any command specified in the config file
++ ```--deployDeps <dep>``` - specify depencies to deploy. Either ```all``` for all dependencies, or the name of a dependency.
++ ```--skipRsync``` - Skip deploying files with rsync. Only run ssh-commands, if any.
++ ```--depsOnly``` - Only deploy dependencies, ignore current directory.
 + ```--help``` - prints command line help summary

@@ -28,17 +28,35 @@ function parseFlags(args,flags) {
 const flags={
     dry:false,
     rsyncFlags:true,
-    run:true,
     ssh_shell:true,
+    ssh_cmd:true,
+    sshCmd:true,
+    deployDeps:true,
     help:false,
+    skipMain:false,
+    depSsh:true,
+    depsOnly:false,
 }
 
+function getOpt(opts,dicts,default_val) {
+    for(const dict of dicts) {
+        for(const opt of opts) {
+            if(dict?.[opt]) return dict[opt]
+        }
+    }
+    return default_val
+}
 function help() {
     console.log('deploy [options] [target]');
     console.log('Deploys code to target based on the config file .templ.mjs.');
     console.log('--dry',"Dry run, don't do anything just print what would be done.")
     console.log('--rsyncFlags',"Extra flags to add to rsync.")
-    console.log('--ssh_shell',"Command to run remotely after rsync.")
+    console.log('--skipRsync',"Skip deploying files with rsync. Only run ssh-commands, if any.")
+    console.log('--deployDeps',"Deploys dependencies specified in config.")
+    console.log('--sshCmd',"Command to run remotely after rsync.")
+    console.log('--depSsh',"Command to run remotely after deploying dependency.")
+    console.log('--depsOnly',"Only deploy dependencies, ignore current directory.")
+
     console.log('--help',"This info.")
 }
 export async function deploy({args, options, callback, baseDir,gitOptions=default_options}={}) {
@@ -77,35 +95,82 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
         process.exit(1)
     }
 
-    const dir=templConfig.dir||config.options?.dir||'dist'
-    const exclude=templConfig.exclude||config.options?.exclude
-
-    console.log('Deploying',dir, 'to', 
-        templConfig.app||templConfig.user);
-    if(exclude) console.log('Excluding',exclude);
-
     let shell='ssh'
     if(templConfig.port) shell+=` -p ${templConfig.port}`
     if(templConfig.sshId) shell+=` -i ${templConfig.sshId}`
-    let src=dir
-    if(!src.endsWith('/')) src += '/'
     const app = templConfig.app
+    const dstDir=templConfig.dst || `app_${app}/`
     const user=templConfig.user||`user_${app}`
     const host=templConfig.host
+
+    options=Object.assign({
+        rsyncFlags:templConfig.rsyncFlags||'avzh',
+        skipRsync:templConfig.skip_rsync||templConfig.skipRsync,
+        callback
+    },options)
+
+    if(options.deployDeps && config.options.deps) {
+        // Deploy deps first
+        for(let dep of config.options.deps) {
+            if(options.deployDeps!='all' && !dep.match(options.deployDeps)) continue
+            const depBase=baseDir+'/'+dep
+            try {
+                const dep_options = Object.assign({},config,(await import(depBase+'/.templ.mjs')).default?.options)
+                const dstDir=dep_options.dst || dep.replace('../','')
+                dep += '/'
+                const dir=dep+(dep_options?.dir||'dist')
+                const exclude=dep_options?.exclude //?.map(exc=>dep+exc)
+
+                await deploy_dir(options,dir,exclude,shell,dstDir,user,host)
+                const ssh_cmd=getOpt(['depSsh','dep_ssh','ssh_cmd'],[options,dep_options])
+                if(ssh_cmd) {
+                    await deploy_actions(options,ssh_cmd,shell,user,host,dstDir)
+                }
+            } catch(e) {
+                console.error('Failed to deploy dependecy',dep);
+                console.error(e.message);
+                console.error('Skipping');
+            }
+        }
+    }
+    if(options.depsOnly) return
+
+    const dir=templConfig.dir||config.options?.dir||'dist'
+    const exclude=templConfig.exclude||config.options?.exclude
+
+    await deploy_dir(options,dir,exclude,shell,dstDir,user,host)
+    const ssh_cmd=getOpt(['sshCmd','ssh_cmd','ssh_shell'],[options,templConfig,config.options])
+    if(ssh_cmd) {
+        await deploy_actions(options,ssh_cmd,shell,user,host,dstDir)
+    }
+}
+/**
+ * 
+ * @param {object} options 
+ * @param {string} dir 
+ * @param {[string]} exclude 
+ * @param {string} shell 
+ * @param {string} dstDir 
+ * @param {string} user 
+ * @param {string} host 
+ * @returns 
+ */
+export async function deploy_dir(options,dir,exclude,shell,dstDir,user,host) {
+
+    let src=dir
+    if(!src.endsWith('/')) src += '/'
     let dst=`${user}@${host}:`
-    let dstDir=templConfig.dst || `app_${templConfig.app}/`
-    dst+= dstDir
+    dst += dstDir
     if(!dst.endsWith('/')) dst += '/'
 
-    const r=Rsync().set('rsync-path',`mkdir -p ${dstDir} && rsync`).shell(shell).exclude(exclude||[]).flags(options.rsyncFlags||templConfig.rsyncFlags||'avzh').source(src).destination(dst)
-    const skipRsync=templConfig.skip_rsync||options.skip_rsync
-    if(!skipRsync) {
+    console.log('Deploying',dir, 'to', dst);
+    if(exclude) console.log('Excluding',exclude);
+
+    const r=Rsync().set('rsync-path',`mkdir -p ${dstDir} && rsync`).shell(shell).exclude(exclude||[]).flags(options.rsyncFlags).source(src).destination(dst)
+    if(!options.skipRsync) {
         if(options.dry) {
             console.log( 'Dry run:',r.command() )
         } else {
-            if(!callback) callback=(error,code,cmd) => {
-                console.log(error,code,cmd);
-            }
             let {error,code,cmd}=await new Promise(resolve=>r.execute((error,code,cmd)=>resolve({error,code,cmd})))
             console.log(cmd);
             if(error) {
@@ -114,59 +179,44 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
             }
         }
     }
-    const run=options.run||templConfig.run||config.options?.run
-    if(run) {
-        // Run command remotely
-        let ssh_dst={host,username:user}
-        if(options.dry) ssh_dst.host='mock_ip'
-        if(templConfig.port) ssh_dst.port=templConfig.port
-        if(templConfig.keyFile) ssh_dst.keyFile=templConfig.keyFile
-        let cmd=`cd ${dstDir}; ${run}`
-        cmd = new SSHCommand(ssh_dst,cmd)
-        try {
-            let [code,stdout,stderr] = await cmd.run()
+}
+
+/**
+ * 
+ * @param {object} options 
+ * @param {string} ssh_cmd 
+ * @param {string} shell 
+ * @param {string} user 
+ * @param {string} host 
+ * @param {string} dstDir 
+ */
+export async function deploy_actions(options,ssh_cmd,shell,user,host,dstDir) {
+    // Run command with SSH via shell
+    let cmd=`${shell} ${user}@${host} 'cd ${dstDir}; ${ssh_cmd}'`
+    try {
+        if(options.dry) {
+            console.log('Dry run', cmd);
+        } else {
+            console.log('Executing',cmd);
+            let p = new Promise((r,f)=>{
+                const shell =shelljs.exec(cmd,{silent:true},(code,stdout,stderr)=>{
+                    r({code,stdout,stderr})
+                })
+                shell.stdout.on('data', function(data) {
+                    /* ... do something with data ... */
+                    console.log(data.toString());
+                });                      
+                shell.stderr.on('data', function(data) {
+                    /* ... do something with data ... */
+                    console.log('stderr:',data.toString());
+                });                      
+            })
+            let {code,stdout,stderr} = await p
             if(code) {
                 console.log('Error code:',code);
             }
-            console.log("Stdout:",stdout);
-            console.log("Stderr:",stderr);
-        } catch(e) {
-            console.log(e);
         }
+    } catch(e) {
+        console.log(e);
     }
-    const ssh_shell=options.ssh_shell||templConfig.ssh_shell||config.options?.ssh_shell
-    if(ssh_shell) {
-        // Run command with SSH via shell
-        let cmd=`${shell} ${user}@${host} 'cd ${dstDir}; ${ssh_shell}'`
-        try {
-            if(options.dry) {
-                console.log('Dry run', cmd);
-            } else {
-                console.log('Executing',cmd);
-                let p = new Promise((r,f)=>{
-                    const shell =shelljs.exec(cmd,{silent:true},(code,stdout,stderr)=>{
-                        r({code,stdout,stderr})
-                    })
-                    shell.stdout.on('data', function(data) {
-                        /* ... do something with data ... */
-                        console.log(data.toString());
-                    });                      
-                    shell.stderr.on('data', function(data) {
-                        /* ... do something with data ... */
-                        console.log('stderr:',data.toString());
-                    });                      
-                })
-                let {code,stdout,stderr} = await p
-                if(code) {
-                    console.log('Error code:',code);
-                }
-                //console.log("Stdout:",stdout);
-                //console.log("Stderr:",stderr);
-            }
-        } catch(e) {
-            console.log(e);
-        }
-    }
-
-
 }
