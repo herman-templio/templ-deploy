@@ -24,7 +24,7 @@ const config = {
             app:1234,
             host:'hostname.com',
             port:22342,
-            ssh_shell:'./run-after-deploy.sh', // Run remotely after files copied
+            sshCmd:'./run-after-deploy.sh', // Run remotely after files copied
         }
     }
 }
