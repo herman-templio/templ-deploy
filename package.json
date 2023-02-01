@@ -6,6 +6,7 @@
   "bin": {
     "templ-deploy": "./cli.js"
   },
+  "types": "./types/index.d.ts",
   "dependencies": {
     "rsync": "^0.6.1",
     "shelljs": "^0.8.5",

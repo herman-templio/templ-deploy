@@ -36,6 +36,7 @@ const flags={
     skipMain:false,
     depSsh:true,
     depsOnly:false,
+    depsGit:true,
 }
 
 function getOpt(opts,dicts,default_val) {
@@ -52,10 +53,11 @@ function help() {
     console.log('--dry',"Dry run, don't do anything just print what would be done.")
     console.log('--rsyncFlags',"Extra flags to add to rsync.")
     console.log('--skipRsync',"Skip deploying files with rsync. Only run ssh-commands, if any.")
-    console.log('--deployDeps',"Deploys dependencies specified in config.")
+    console.log('--deployDeps <deps>',"Deploys dependencies specified in config. Argument is either 'all' or a comma-separated list of dependencies to deploy.")
     console.log('--sshCmd',"Command to run remotely after rsync.")
     console.log('--depSsh',"Command to run remotely after deploying dependency.")
     console.log('--depsOnly',"Only deploy dependencies, ignore current directory.")
+    console.log('--depsGit <cmd>',"Run git command on deps.")
 
     console.log('--help',"This info.")
 }
@@ -79,6 +81,20 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     // console.log(options);
     const git=simpleGit(gitOptions)
     const branch = (await git.branchLocal()).current
+    if(options.depsGit) {
+        const cmd=options.depsGit.split(' ')
+        for (const dep of config.options.deps) {
+            //console.log(dep,cmd[0]);
+            const dgit=simpleGit(Object.assign(gitOptions,{baseDir:dep}))
+            let res
+            switch(cmd[0]) {
+                case 'status': res=(await dgit.status()).isClean()?'':'modified'; break
+                default: break
+            }
+            if(res) console.log(dep,cmd[0],res);
+        }
+        return
+    }
 
     console.log('Current branch',branch);
     const templ=args[0]||branch
@@ -99,7 +115,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     if(templConfig.port) shell+=` -p ${templConfig.port}`
     if(templConfig.sshId) shell+=` -i ${templConfig.sshId}`
     const app = templConfig.app
-    const dstDir=templConfig.dst || `app_${app}/`
+    const dstDir=templConfig.dst?.replace('{{app_dir}}',app) || `app_${app}/`
     const user=templConfig.user||`user_${app}`
     const host=templConfig.host
 
@@ -122,7 +138,10 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
                 const exclude=dep_options?.exclude //?.map(exc=>dep+exc)
 
                 await deploy_dir(options,dir,exclude,shell,dstDir,user,host)
-                const ssh_cmd=getOpt(['depSsh','dep_ssh','ssh_cmd'],[options,dep_options])
+                // Get command from deps config
+                let ssh_cmd=getOpt(['ssh_cmd'],[dep_options])
+                // Override command from deps config
+                ssh_cmd=getOpt(['depSsh','dep_ssh'],[options,config.options])
                 if(ssh_cmd) {
                     await deploy_actions(options,ssh_cmd,shell,user,host,dstDir)
                 }
