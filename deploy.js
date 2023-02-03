@@ -37,6 +37,7 @@ const flags={
     depSsh:true,
     depsOnly:false,
     depsGit:true,
+    delete:false,
 }
 
 function getOpt(opts,dicts,default_val) {
@@ -58,6 +59,7 @@ function help() {
     console.log('--depSsh',"Command to run remotely after deploying dependency.")
     console.log('--depsOnly',"Only deploy dependencies, ignore current directory.")
     console.log('--depsGit <cmd>',"Run git command on deps.")
+    console.log('--delete',"Delete files from the receiving side that aren't on the sending side.")
 
     console.log('--help',"This info.")
 }
@@ -122,6 +124,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     options=Object.assign({
         rsyncFlags:templConfig.rsyncFlags||'avzh',
         skipRsync:templConfig.skip_rsync||templConfig.skipRsync,
+        delete:templConfig.delete,
         callback
     },options)
 
@@ -186,6 +189,9 @@ export async function deploy_dir(options,dir,exclude,shell,dstDir,user,host) {
     if(exclude) console.log('Excluding',exclude);
 
     const r=Rsync().set('rsync-path',`mkdir -p ${dstDir} && rsync`).shell(shell).exclude(exclude||[]).flags(options.rsyncFlags).source(src).destination(dst)
+    if(options.delete) {
+        r.delete()
+    }
     if(!options.skipRsync) {
         if(options.dry) {
             console.log( 'Dry run:',r.command() )

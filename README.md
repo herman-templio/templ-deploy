@@ -78,4 +78,5 @@ The following command line options are supported. **Note:** if running deploy as
 + ```--deployDeps <dep>``` - specify depencies to deploy. Either ```all``` for all dependencies, or the name of a dependency.
 + ```--skipRsync``` - Skip deploying files with rsync. Only run ssh-commands, if any.
 + ```--depsOnly``` - Only deploy dependencies, ignore current directory.
++ ```--delete``` - Delete files from the receiving side that aren't on the sending side.
 + ```--help``` - prints command line help summary
