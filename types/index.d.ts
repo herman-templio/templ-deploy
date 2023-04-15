@@ -9,7 +9,12 @@ declare interface DeployOptions {
     deps?:string[],
     /** Don't run rsync, only run deploy commands. */
     skipRsync?:boolean
+    /** List of files and directories to deploy. May contain wild-cards. Default is to deploy everything in dir that isn't excluded */
+    files:string[],
 }
+/**
+ * TemplOptions override all global options
+ */
 declare interface TemplOptions extends DeployOptions {
     /** Hostname to deploy to. */
     host:string,
@@ -21,8 +26,6 @@ declare interface TemplOptions extends DeployOptions {
     user?:string,
     /** Destination directory. Default: `app_<app>` if an app was specified. */
     dst?:string,
-    /** List of files to deploy. Default is to deploy everything that isn't excluded */
-    files:string[],
 }
 export declare interface DeployConfig {
     /** Global deploy options */
