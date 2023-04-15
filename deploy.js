@@ -139,8 +139,9 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
                 dep += '/'
                 const dir=dep+(dep_options?.dir||'dist')
                 const exclude=dep_options?.exclude //?.map(exc=>dep+exc)
+                const files=dep_options.files
 
-                await deploy_dir(options,dir,exclude,shell,dstDir,user,host)
+                await deploy_dir(options,dir,exclude,files,shell,dstDir,user,host)
                 // Get command from deps config
                 let ssh_cmd=getOpt(['ssh_cmd'],[dep_options])
                 // Override command from deps config
@@ -159,8 +160,9 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
 
     const dir=templConfig.dir||config.options?.dir||'dist'
     const exclude=templConfig.exclude||config.options?.exclude
+    const files=templConfig.files||config.options?.files
 
-    await deploy_dir(options,dir,exclude,shell,dstDir,user,host)
+    await deploy_dir(options,dir,exclude,files,shell,dstDir,user,host)
     const ssh_cmd=getOpt(['sshCmd','ssh_cmd','ssh_shell'],[options,templConfig,config.options])
     if(ssh_cmd) {
         await deploy_actions(options,ssh_cmd,shell,user,host,dstDir)
@@ -170,22 +172,26 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
  * 
  * @param {object} options 
  * @param {string} dir 
- * @param {[string]} exclude 
+ * @param {string[]} exclude files to exclude
+ * @param {string[]} files files and directories to include, default is to include everything
  * @param {string} shell 
  * @param {string} dstDir 
  * @param {string} user 
  * @param {string} host 
  * @returns 
  */
-export async function deploy_dir(options,dir,exclude,shell,dstDir,user,host) {
-
+export async function deploy_dir(options,dir,exclude,files,shell,dstDir,user,host) {
     let src=dir
     if(!src.endsWith('/')) src += '/'
+    if(files?.length) {
+        src=files.map(f=>src+f)
+        console.log('Multiple files:',src);
+    }
     let dst=`${user}@${host}:`
     dst += dstDir
     if(!dst.endsWith('/')) dst += '/'
 
-    console.log('Deploying',dir, 'to', dst);
+    console.log('Deploying',src, 'to', dst);
     if(exclude) console.log('Excluding',exclude);
 
     const r=Rsync().set('rsync-path',`mkdir -p ${dstDir} && rsync`).shell(shell).exclude(exclude||[]).flags(options.rsyncFlags).source(src).destination(dst)
