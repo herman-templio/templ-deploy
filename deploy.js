@@ -1,7 +1,7 @@
 import simpleGit, {CleanOptions} from 'simple-git'
 import Rsync from 'rsync'
-import { SSHCommand } from './ssh.js';
 import shelljs from 'shelljs'
+import readline from 'node:readline/promises'
 
 const default_options = {
     baseDir: process.cwd(),
@@ -31,6 +31,7 @@ const flags={
     ssh_shell:true,
     ssh_cmd:true,
     sshCmd:true,
+    files:true,
     deployDeps:true,
     help:false,
     skipMain:false,
@@ -38,6 +39,7 @@ const flags={
     depsOnly:false,
     depsGit:true,
     delete:false,
+    inquire:false,
 }
 
 function getOpt(opts,dicts,default_val) {
@@ -56,10 +58,12 @@ function help() {
     console.log('--skipRsync',"Skip deploying files with rsync. Only run ssh-commands, if any.")
     console.log('--deployDeps <deps>',"Deploys dependencies specified in config. Argument is either 'all' or a comma-separated list of dependencies to deploy.")
     console.log('--sshCmd',"Command to run remotely after rsync.")
+    console.log('--files',"Files to deploy.")
     console.log('--depSsh',"Command to run remotely after deploying dependency.")
     console.log('--depsOnly',"Only deploy dependencies, ignore current directory.")
     console.log('--depsGit <cmd>',"Run git command on deps.")
     console.log('--delete',"Delete files from the receiving side that aren't on the sending side.")
+    console.log('--inquire',"Ask before actually doing anything.")
 
     console.log('--help',"This info.")
 }
@@ -160,7 +164,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
 
     const dir=templConfig.dir||config.options?.dir||'dist'
     const exclude=templConfig.exclude||config.options?.exclude
-    const files=templConfig.files||config.options?.files
+    const files=options.files?.split(',')??templConfig.files??config.options?.files
 
     await deploy_dir(options,dir,exclude,files,shell,dstDir,user,host)
     const ssh_cmd=getOpt(['sshCmd','ssh_cmd','ssh_shell'],[options,templConfig,config.options])
@@ -201,14 +205,30 @@ export async function deploy_dir(options,dir,exclude,files,shell,dstDir,user,hos
     if(!options.skipRsync) {
         if(options.dry) {
             console.log( 'Dry run:',r.command() )
-        } else {
+        } else if(await inquire(options,`Really run: ${r.command()}`)) {
+            console.log('Executing',r.command());
             let {error,code,cmd}=await new Promise(resolve=>r.execute((error,code,cmd)=>resolve({error,code,cmd})))
-            console.log(cmd);
             if(error) {
                 console.log('Error',error);
                 return
             }
         }
+    }
+}
+
+async function inquire(options,question) {
+    if(options.inquire) {
+        console.log(question, '? (y/N)', '(asking becuse flag --inquire is given)');
+        let rl=readline.createInterface({input:process.stdin})
+        let a=await rl.question('question')
+        //console.log('Answer was',a);
+        rl.close()
+        if(a.trim().match(/^y$/i)) {
+            //console.log(a,'matched');
+            return true
+        }
+    } else {
+        return true
     }
 }
 
@@ -227,7 +247,7 @@ export async function deploy_actions(options,ssh_cmd,shell,user,host,dstDir) {
     try {
         if(options.dry) {
             console.log('Dry run', cmd);
-        } else {
+        } else if (await inquire(options,`Really run: ${cmd}`)) {
             console.log('Executing',cmd);
             let p = new Promise((r,f)=>{
                 const shell =shelljs.exec(cmd,{silent:true},(code,stdout,stderr)=>{
