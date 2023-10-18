@@ -112,8 +112,8 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
         process.exit(1)
     }
 
-    if(!(templConfig.app || templConfig.user) || !templConfig.host) {
-        console.log('Config must define an app or user, and a host');
+    if( !templConfig.host) {
+        console.log('Config must define a host');
         process.exit(1)
     }
 
@@ -122,7 +122,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     if(templConfig.sshId) shell+=` -i ${templConfig.sshId}`
     const app = templConfig.app
     const dstDir=templConfig.dst?.replace('{{app_dir}}',app) || `app_${app}/`
-    const user=templConfig.user||`user_${app}`
+    const user=templConfig.user??app?`user_${app}`:''
     const host=templConfig.host
 
     options=Object.assign({
@@ -191,7 +191,8 @@ export async function deploy_dir(options,dir,exclude,files,shell,dstDir,user,hos
         src=files.map(f=>src+f)
         console.log('Multiple files:',src);
     }
-    let dst=`${user}@${host}:`
+    if(user) user += '@'
+    let dst=`${user||''}${host}:`
     dst += dstDir
     if(!dst.endsWith('/')) dst += '/'
 
@@ -243,7 +244,8 @@ async function inquire(options,question) {
  */
 export async function deploy_actions(options,ssh_cmd,shell,user,host,dstDir) {
     // Run command with SSH via shell
-    let cmd=`${shell} ${user}@${host} 'cd ${dstDir}; ${ssh_cmd}'`
+    if(user) user += '@'
+    let cmd=`${shell} ${user||''}${host} 'cd ${dstDir}; ${ssh_cmd}'`
     try {
         if(options.dry) {
             console.log('Dry run', cmd);
