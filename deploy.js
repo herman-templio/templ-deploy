@@ -122,7 +122,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     if(templConfig.sshId) shell+=` -i ${templConfig.sshId}`
     const app = templConfig.app
     const dstDir=templConfig.dst?.replace('{{app_dir}}',app) || `app_${app}/`
-    const user=templConfig.user??app?`user_${app}`:''
+    const user=templConfig.user??(app?`user_${app}`:'')
     const host=templConfig.host
 
     options=Object.assign({
