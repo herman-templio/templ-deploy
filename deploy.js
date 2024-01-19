@@ -58,7 +58,7 @@ function help() {
     console.log('--skipRsync',"Skip deploying files with rsync. Only run ssh-commands, if any.")
     console.log('--deployDeps <deps>',"Deploys dependencies specified in config. Argument is either 'all' or a comma-separated list of dependencies to deploy.")
     console.log('--sshCmd',"Command to run remotely after rsync.")
-    console.log('--files',"Files to deploy.")
+    console.log('--files',"Files to deploy. Overrides config file and any skipped files.")
     console.log('--depSsh',"Command to run remotely after deploying dependency.")
     console.log('--depsOnly',"Only deploy dependencies, ignore current directory.")
     console.log('--depsGit <cmd>',"Run git command on deps.")
@@ -126,7 +126,7 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     const host=templConfig.host
 
     options=Object.assign({
-        rsyncFlags:templConfig.rsyncFlags||'avzh',
+        rsyncFlags:templConfig.rsyncFlags||'azh',
         skipRsync:templConfig.skip_rsync||templConfig.skipRsync,
         delete:templConfig.delete,
         callback
@@ -163,9 +163,10 @@ export async function deploy({args, options, callback, baseDir,gitOptions=defaul
     if(options.depsOnly) return
 
     const dir=templConfig.dir||config.options?.dir||'dist'
-    const exclude=templConfig.exclude||config.options?.exclude
+    let exclude=templConfig.exclude||config.options?.exclude
     const files=options.files?.split(',')??templConfig.files??config.options?.files
-
+    // If files are given as option, don't exclude anything
+    if (options.files) exclude=[]
     await deploy_dir(options,dir,exclude,files,shell,dstDir,user,host)
     const ssh_cmd=getOpt(['sshCmd','ssh_cmd','ssh_shell'],[options,templConfig,config.options])
     if(ssh_cmd) {
